@@ -48,3 +48,41 @@ func main() {
 
 }
 ```
+
+## adding database access functions
+
+To access the database dbwrap uses lazy-initialized function-typed struct fields, just like with Cleanup in the example above.
+Each function field must have a specific user-defined type wich is basically is a function type but with a member function Prepare defined on that function (weird, huh?).
+
+The Prepare function should implement the lazy initialization for the function itself (see *this = func...) which includes compilation of all the necessary prepared statements.
+
+```go
+type User struct {
+	Id   uint64
+	Name string
+	Data []byte
+}
+
+type dbFuncAddUser func(ctx context.Context, name string) error
+
+func (this *dbFuncAddUser) Prepare(prms *dbwrap.Params) error {
+	stmt, err := prms.Prepare(dbwrap.QueryMap{
+		dbwrap.DriverSQLite3: `INSERT INTO user (name, data) VALUES (?, ?)`,
+	}[prms.Driver])
+	if err != nil {
+		return err
+	}
+	*this = func(ctx context.Context, name string) error {
+		return prms.Tx(nil)(func(tx *sql.Tx) error {
+			_, err := tx.Stmt(stmt).ExecContext(ctx, name, dbwrap.Bin2Str([]byte("test")))
+			return err
+		})
+	}
+	return nil
+}
+
+type DB struct {
+	Cleanup dbwrap.CleanupFunc
+	AddUser dbFuncAddUser
+}
+```
