@@ -80,7 +80,6 @@ func (this *dbFuncAddUser) Prepare(prms *dbwrap.Params) error {
 }
 
 type DB struct {
-	Cleanup dbwrap.CleanupFunc
 	AddUser dbFuncAddUser
 }
 
