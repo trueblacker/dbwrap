@@ -29,7 +29,6 @@ func (this *DB) Open() (*DB, error) {
 				CREATE TABLE IF NOT EXISTS user (
 					id INTEGER PRIMARY KEY,
 					name TEXT,
-					data TEXT
 				);
 			`,
 		},
@@ -46,7 +45,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Cleanup()
-
 }
 ```
 
@@ -59,25 +57,22 @@ The Prepare function should implement the lazy initialization for the function i
 
 ```go
 type User struct {
-	Id   uint64
 	Name string
-	Data []byte
 }
 
-type dbFuncAddUser func(ctx context.Context, name string) error
+type dbFuncAddUser func(ctx context.Context, name string) (int, error)
 
 func (this *dbFuncAddUser) Prepare(prms *dbwrap.Params) error {
 	stmt, err := prms.Prepare(dbwrap.QueryMap{
-		dbwrap.DriverSQLite3: `INSERT INTO user (name, data) VALUES (?, ?)`,
+		dbwrap.DriverSQLite3: `INSERT INTO user (name) VALUES (?) RETURNING id`,
 	}[prms.Driver])
 	if err != nil {
 		return err
 	}
-	*this = func(ctx context.Context, name string) error {
-		return prms.Tx(nil)(func(tx *sql.Tx) error {
-			_, err := tx.Stmt(stmt).ExecContext(ctx, name, dbwrap.Bin2Str([]byte("test")))
-			return err
-		})
+	*this = func(ctx context.Context, name string) (int, error) {
+		var id int
+		err := stmt.QueryRowContext(ctx, name).Scan(&id)
+		return id, err
 	}
 	return nil
 }
@@ -93,9 +88,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Cleanup()
-	err = db.AddUser(context.Background(), "test_user")
+	ctx := context.Background()
+	id, err := db.AddUser(ctx, "test_user")
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("id: %v", id)
 }
 ```
