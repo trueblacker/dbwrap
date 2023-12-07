@@ -97,3 +97,62 @@ func main() {
 	log.Printf("id: %v", id)
 }
 ```
+
+Similarly, we can add a function to read users from the DB.
+
+```go
+type User struct {
+	id   int
+	Name string
+}
+
+type dbFuncGetUsers func(ctx context.Context) ([]*User, error)
+
+func (this *dbFuncGetUsers) Prepare(prms *dbwrap.Params) error {
+	stmt, err := prms.Prepare(`SELECT id, name FROM user`)
+	if err != nil {
+		return err
+	}
+	*this = func(ctx context.Context) ([]*User, error) {
+		rows, err := stmt.QueryContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		ret := []*User{}
+		for rows.Next() {
+			var user User
+			err = rows.Scan(&user.id, &user.Name)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, &user)
+		}
+		return ret, nil
+	}
+	return nil
+}
+
+type DB struct {
+	AddUser  dbFuncAddUser
+	GetUsers dbFuncGetUsers
+}
+
+func main() {
+	db, cleanup, err := new(DB).Open()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cleanup()
+	ctx := context.Background()
+	_, err = db.AddUser(ctx, "test_user")
+	if err != nil {
+		log.Fatal(err)
+	}
+	users, err := db.GetUsers(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(users[0])
+}
+```
