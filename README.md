@@ -9,11 +9,12 @@ Features:
 
 ## basic example
 
-Open and close. You should create a struct with a predefined field of type dbwrap.CleanupFunc and of name Cleanup (this is required). The field will be initialized during the call to Open and will hold all the code necessary to gracefully shut down all the initialized data 
+Open and close. You should create a struct with a predefined field of type dbwrap.CleanupFunc and of name Cleanup (this is required). The field will be initialized during the call to Open and will hold all the code necessary to gracefully shut down all the initialized data. Notice dummy import of necessare databasy driver. The packagae itself does not implicitly imports any of them.
 
 ```go
 import (
 	"log"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/trueblacker/dbwrap"
 )
 
