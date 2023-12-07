@@ -11,7 +11,7 @@ Features:
 
 Open and close. Upon return, Open function returns the cleanup function, which holds all the code necessary to gracefully shut down the initialized data (close the database, etc).
 
-Also notice dummy import of necessary database driver. The packagae itself does not implicitly imports any of them.
+Also notice dummy import of necessary database driver. The package itself does not implicitly imports any of them.
 
 ```go
 import (
