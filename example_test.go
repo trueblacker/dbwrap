@@ -66,15 +66,14 @@ func (this *dbFuncGetUsers) Prepare(prms *dbwrap.Params) error {
 }
 
 type DB struct {
-	Cleanup  dbwrap.CleanupFunc
 	GetUsers dbFuncGetUsers
 	priv     struct {
 		AddUser dbFuncAddUser
 	}
 }
 
-func (this *DB) Open() (*DB, error) {
-	err := dbwrap.NewDB(this).Params(&dbwrap.DBParams{
+func (this *DB) Open() (*DB, dbwrap.CleanupFunc, error) {
+	cleanup, err := dbwrap.NewDB(this).Params(&dbwrap.DBParams{
 		CreateReqs: dbwrap.QueryMap{
 			dbwrap.DriverSQLite3: `
 				CREATE TABLE IF NOT EXISTS user (
@@ -87,9 +86,9 @@ func (this *DB) Open() (*DB, error) {
 		Funcs: dbwrap.Funcs(&this.priv),
 	}).Open(dbwrap.DriverSQLite3, "file::memory:?mode=memory&cache=shared")
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
-	return this, nil
+	return this, cleanup, nil
 }
 
 func js(v any) string {
@@ -101,11 +100,11 @@ func js(v any) string {
 }
 
 func Example() {
-	db, err := new(DB).Open()
+	db, cleanup, err := new(DB).Open()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Cleanup()
+	defer cleanup()
 
 	ctx := context.Background()
 

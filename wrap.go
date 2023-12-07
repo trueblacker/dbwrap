@@ -20,7 +20,7 @@ type dbparams struct {
 
 type dbOpener interface {
 	Params(prms *DBParams) dbOpener
-	Open(driver, connectstr string) error
+	Open(driver, connectstr string) (CleanupFunc, error)
 }
 
 func (this *dbparams) Params(prms *DBParams) dbOpener {
@@ -37,26 +37,24 @@ func NewDB[T any](ret *T) dbOpener {
 	}
 }
 
-func (this *dbparams) Open(driver, connectstr string) error {
+var NullFunc = func() {}
+
+func (this *dbparams) Open(driver, connectstr string) (CleanupFunc, error) {
 	db, err := ConnectDBWithPing(driver, connectstr)
 	if err != nil {
-		return err
+		return NullFunc, err
 	}
 	if this.prms.CreateReqs != nil {
 		req, ok := this.prms.CreateReqs[driver]
 		if !ok || req == "" {
-			return fmt.Errorf("can't find migrate statements for %v driver", driver)
+			return NullFunc, fmt.Errorf("can't find migrate statements for %v driver", driver)
 		}
 		_, err = db.Exec(req)
 		if err != nil {
-			return err
+			return NullFunc, err
 		}
 	}
-	err = this.prepareFuncs(db, driver, append(this.funcs, this.prms.Funcs...))
-	if err != nil {
-		return err
-	}
-	return nil
+	return this.prepareFuncs(db, driver, append(this.funcs, this.prms.Funcs...))
 }
 
 type stmts []*sql.Stmt
@@ -72,7 +70,7 @@ func (this stmts) getCleanup(db *sql.DB) func() {
 	}
 }
 
-func (this dbparams) prepareFuncs(db *sql.DB, driver string, allFuncs []any) error {
+func (this dbparams) prepareFuncs(db *sql.DB, driver string, allFuncs []any) (CleanupFunc, error) {
 	var allStmts stmts
 	cleanup := allStmts.getCleanup(db)
 	failCleanup := cleanup
@@ -119,11 +117,11 @@ func (this dbparams) prepareFuncs(db *sql.DB, driver string, allFuncs []any) err
 		for _, funcs := range allFuncs {
 			ptr := reflect.ValueOf(funcs)
 			if ptr.Kind() != reflect.Ptr {
-				return errors.New("invalid funcs kind: ptr wanted")
+				return NullFunc, errors.New("invalid funcs kind: ptr wanted")
 			}
 			f := ptr.Elem()
 			if f.Kind() != reflect.Struct {
-				return errors.New("invalid funcs type: ptr to struct wanted")
+				return NullFunc, errors.New("invalid funcs type: ptr to struct wanted")
 			}
 			numField := f.NumField()
 			for i := 0; i < numField; i++ {
@@ -133,19 +131,13 @@ func (this dbparams) prepareFuncs(db *sql.DB, driver string, allFuncs []any) err
 				}
 				err := this.preparer.prepare(field.Addr().Interface(), prms)
 				if err != nil {
-					return fmt.Errorf("error preparing sql statement for field %v: %v", i, err)
-				}
-			}
-			field := f.FieldByName("Cleanup")
-			if check(field) {
-				if _, ok := field.Interface().(CleanupFunc); ok {
-					field.Set(reflect.ValueOf(cleanup))
+					return NullFunc, fmt.Errorf("error preparing sql statement for field %v: %v", i, err)
 				}
 			}
 		}
 	}
 	failCleanup = nil
-	return nil
+	return cleanup, nil
 }
 
 func ConnectDBWithPing(driver, connectstr string) (*sql.DB, error) {
