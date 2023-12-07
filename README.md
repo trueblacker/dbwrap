@@ -156,3 +156,5 @@ func main() {
 	fmt.Println(users[0])
 }
 ```
+
+You can see some advanced use cases in [example](example_test.go)
