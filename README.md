@@ -9,7 +9,9 @@ Features:
 
 ## basic example
 
-Open and close. You should create a struct with a predefined field of type dbwrap.CleanupFunc and of name Cleanup (this is required). The field will be initialized during the call to Open and will hold all the code necessary to gracefully shut down all the initialized data. Notice dummy import of necessary database driver. The packagae itself does not implicitly imports any of them.
+Open and close. Upon return, Open function returns the cleanup function, which holds all the code necessary to gracefully shut down the initialized data (close the database, etc).
+
+Also notice dummy import of necessary database driver. The packagae itself does not implicitly imports any of them.
 
 ```go
 import (
@@ -19,32 +21,32 @@ import (
 )
 
 type DB struct {
-	Cleanup dbwrap.CleanupFunc
 }
 
-func (this *DB) Open() (*DB, error) {
-	err := dbwrap.NewDB(this).Params(&dbwrap.DBParams{
+func (this *DB) Open() (*DB, dbwrap.CleanupFunc, error) {
+	cleanup, err := dbwrap.NewDB(this).Params(&dbwrap.DBParams{
 		CreateReqs: dbwrap.QueryMap{
 			dbwrap.DriverSQLite3: `
 				CREATE TABLE IF NOT EXISTS user (
 					id INTEGER PRIMARY KEY,
 					name TEXT,
+					data TEXT
 				);
 			`,
 		},
 	}).Open(dbwrap.DriverSQLite3, "file::memory:?mode=memory&cache=shared")
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
-	return this, nil
+	return this, cleanup, nil
 }
 
 func main() {
-	db, err := new(DB).Open()
+	db, cleanup, err := new(DB).Open()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Cleanup()
+	defer cleanup()
 }
 ```
 
