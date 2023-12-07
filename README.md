@@ -85,4 +85,16 @@ type DB struct {
 	Cleanup dbwrap.CleanupFunc
 	AddUser dbFuncAddUser
 }
+
+func main() {
+	db, err := new(DB).Open()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Cleanup()
+	err = db.AddUser(context.Background(), "test_user")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 ```
