@@ -85,11 +85,11 @@ type DB struct {
 }
 
 func main() {
-	db, err := new(DB).Open()
+	db, cleanup, err := new(DB).Open()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Cleanup()
+	defer cleanup()
 	ctx := context.Background()
 	id, err := db.AddUser(ctx, "test_user")
 	if err != nil {
