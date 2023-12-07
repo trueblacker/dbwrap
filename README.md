@@ -1,6 +1,6 @@
 # dbwrap
 
-Package to wrap & simplify (hopefully) access to an SQL database. Works on top of "database/sql" and not an ORM.
+Package to wrap & simplify (hopefully) access to an SQL database. Works on top of "database/sql" and IS NOT an ORM.
 Features:
 
 * Encapsulate low-level database access in a set of application-logic functions
